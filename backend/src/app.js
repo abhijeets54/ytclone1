@@ -10,12 +10,18 @@ import likeRouter from "./routes/like.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
 import subscriptionRouter from "./routes/subscription.routes.js";
 import tweetRouter from "./routes/tweet.routes.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['set-cookie']
 }));
 
 app.use(express.json({ limit: '16kb' }));

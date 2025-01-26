@@ -111,25 +111,63 @@ const publishAVideo = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, video, "Video published succesfully."));
 })
 
+// src/controllers/video.controller.js
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
-  
-    if (!isValidObjectId(videoId)) {
-        throw new ApiError(400, "Invalid VideoID.");
-    }
-
-    const responce = await Video.findById(videoId);
-
-    if (!responce) {
-        throw new ApiError(400, "Failed to get Video details.");
-    }
-
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, responce, "Video details fetched succesfully.")
+    
+    // Check if it's a YouTube video ID (typically 11 characters)
+    if (videoId.length === 11) {
+      try {
+        const response = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoId}&key=${process.env.YOUTUBE_API_KEY}`
         );
-})
+        const data = await response.json();
+        
+        if (!data.items?.length) {
+          throw new ApiError(404, "YouTube video not found");
+        }
+  
+        const video = data.items[0];
+        return res.json({
+          success: true,
+          data: {
+            _id: video.id,
+            title: video.snippet.title,
+            description: video.snippet.description,
+            thumbnail: video.snippet.thumbnails.high.url,
+            videoFile: `https://www.youtube.com/watch?v=${video.id}`,
+            duration: video.contentDetails.duration,
+            views: parseInt(video.statistics.viewCount),
+            owner: {
+              _id: video.snippet.channelId,
+              username: video.snippet.channelTitle,
+              fullName: video.snippet.channelTitle,
+              avatar: `https://i.pravatar.cc/150?u=${video.snippet.channelId}`
+            },
+            createdAt: video.snippet.publishedAt
+          }
+        });
+      } catch (error) {
+        throw new ApiError(404, "Video not found");
+      }
+    }
+  
+    // Handle MongoDB video IDs
+    if (!isValidObjectId(videoId)) {
+      throw new ApiError(400, "Invalid VideoID");
+    }
+  
+    const video = await Video.findById(videoId);
+    if (!video) {
+      throw new ApiError(404, "Video not found");
+    }
+  
+    return res.json({
+      success: true,
+      data: video
+    });
+  });
+  
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
@@ -223,11 +261,77 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, responce, "Published toggled succesfully."));
 })
 
+// src/controllers/video.controller.js
+const searchVideos = asyncHandler(async (req, res) => {
+    const { q } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+  
+    if (!q) {
+      throw new ApiError(400, "Search query is required");
+    }
+  
+    const videos = await Video.aggregate([
+      {
+        $match: {
+          $or: [
+            { title: { $regex: q, $options: "i" } },
+            { description: { $regex: q, $options: "i" } }
+          ],
+          isPublished: true
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "owner",
+          foreignField: "_id",
+          as: "owner"
+        }
+      },
+      {
+        $unwind: "$owner"
+      },
+      {
+        $project: {
+          videoFile: 1,
+          thumbnail: 1,
+          title: 1,
+          description: 1,
+          duration: 1,
+          views: 1,
+          createdAt: 1,
+          "owner._id": 1,
+          "owner.username": 1,
+          "owner.fullName": 1,
+          "owner.avatar": 1
+        }
+      },
+      {
+        $skip: (page - 1) * limit
+      },
+      {
+        $limit: limit
+      }
+    ]);
+  
+    return res.json({
+      success: true,
+      data: {
+        videos,
+        page,
+        limit
+      }
+    });
+  });
+  
+
 export {
     getAllVideos,
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
+    togglePublishStatus,
+    searchVideos
 }
