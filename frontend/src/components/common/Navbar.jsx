@@ -100,11 +100,13 @@ const Navbar = () => {
               onClose={handleClose}
             >
               <MenuItem onClick={() => {
-                navigate(`/channel/${user.username}`);
-                handleClose();
-              }}>
-                My Channel
-              </MenuItem>
+                console.log(user);
+                
+  navigate(`/c/${user.user.username}`);  // Changed from /channel/ to /c/
+  handleClose();
+}}>
+  My Channel
+</MenuItem>
               <MenuItem onClick={() => {
                 navigate('/dashboard');
                 handleClose();

@@ -1,8 +1,24 @@
 import api from '../utils/axios.config';
 
 export const userService = {
+
   getChannelProfile: async (username) => {
-    const response = await api.get(`/users/c/${username}`);
+    if (!username) {
+      throw new Error('Username is required');
+    }
+    
+    // Remove any potential whitespace and validate username
+    const sanitizedUsername = username.trim();
+    if (!sanitizedUsername || sanitizedUsername === 'undefined' || sanitizedUsername === 'null') {
+      throw new Error('Invalid username');
+    }
+
+    const response = await api.get(`/users/c/${sanitizedUsername}`);
+    return response.data;
+  },
+
+   getChannelProfile: async (username) => {
+    const response = await api.get(`/users/c/${username}`);  // Changed from /c/ to /channel/
     return response.data;
   },
 

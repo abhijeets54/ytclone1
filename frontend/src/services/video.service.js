@@ -38,7 +38,7 @@ export const videoService = {
   },
 
   getChannelVideos: async (username) => {
-    const response = await api.get(`/videos/channel/${username}`);
+    const response = await api.get(`/videos/c/${username}`);
     return response.data;
   },
 

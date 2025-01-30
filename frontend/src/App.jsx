@@ -71,10 +71,10 @@ const App = () => {
           </ErrorBoundary>
         } />
         <Route path="/search" element={<Search />} />
-        <Route path="/channel/:username" element={
-          <ErrorBoundary fallback={<div>Channel not found</div>}>
-            <Channel />
-          </ErrorBoundary>
+        <Route path="/c/:username" element={  // Changed from /channel/ to /c/
+  <ErrorBoundary fallback={<div>Channel not found</div>}>
+    <Channel />
+  </ErrorBoundary>
         } />
 
         {/* Auth Routes */}
@@ -86,11 +86,11 @@ const App = () => {
         } />
 
         {/* Protected Routes */}
-        <Route path="/channel/@me" element={
-          <ProtectedRoute>
-            <Channel />
-          </ProtectedRoute>
-        } />
+        <Route path="/c/@me" element={  // Changed from /channel/@me to /c/@me
+  <ProtectedRoute>
+    <Channel />
+  </ProtectedRoute>
+} />
         <Route path="/upload" element={
           <ProtectedRoute>
             <Upload />
