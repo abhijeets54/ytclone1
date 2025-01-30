@@ -295,71 +295,133 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
     return res.status(200).json(new ApiResponse(200, user, {}, "Cover image updated successfully"));
 })
-
-// src/controllers/user.controller.js
 const getChannelProfile = asyncHandler(async (req, res) => {
-    const { username } = req.params;
-  
-    // If accessing "my channel", use the logged-in user's username
-    const channelUsername = username === '@me' ? req.user?.username : username;
-  
-    if (!channelUsername) {
-      throw new ApiError(400, "Invalid username");
-    }
-  
-    const channel = await User.aggregate([
-      {
-        $match: { username: channelUsername }
-      },
-      {
-        $lookup: {
-          from: "subscriptions",
-          localField: "_id",
-          foreignField: "channel",
-          as: "subscribers"
+    try {
+        // Debug logs for request
+        console.log("Full request params:", req.params);
+        console.log("Full request query:", req.query);
+        console.log("Full request path:", req.path);
+        console.log("Full request method:", req.method);
+        console.log("Full request URL:", req.originalUrl);
+        console.log("Authentication status:", !!req.user);
+        
+        const { username } = req.params;
+        
+        // Check if username is literally 'undefined' or actually undefined
+        if (!username || username === 'undefined') {
+            console.log("Invalid username received:", username);
+            throw new ApiError(400, "Valid username is required");
         }
-      },
-      {
-        $lookup: {
-          from: "videos",
-          localField: "_id",
-          foreignField: "owner",
-          as: "videos"
-        }
-      },
-      {
-        $addFields: {
-          subscribersCount: { $size: "$subscribers" },
-          videosCount: { $size: "$videos" },
-          isSubscribed: {
-            $cond: {
-              if: { $in: [req.user?._id, "$subscribers.subscriber"] },
-              then: true,
-              else: false
+
+        // Debug log for extracted username
+        console.log("Requested username:", username);
+
+        // Handle @me route and ensure we have a username
+        let channelUsername;
+        if (username === '@me') {
+            console.log("@me route detected, checking authentication");
+            
+            if (!req.user) {
+                console.log("Authentication missing for @me route");
+                throw new ApiError(401, "Authentication required for @me route");
             }
-          }
+            
+            if (!req.user.username) {
+                console.log("Authenticated user has no username");
+                throw new ApiError(400, "Authenticated user does not have a username");
+            }
+            
+            channelUsername = req.user.username;
+            console.log("Using authenticated user's username:", channelUsername);
+        } else {
+            // Validate username format
+            if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+                console.log("Invalid username format:", username);
+                throw new ApiError(400, "Username can only contain letters, numbers, underscores, and hyphens");
+            }
+            
+            channelUsername = username;
+            console.log("Using provided username:", channelUsername);
         }
-      },
-      {
-        $project: {
-          password: 0,
-          refreshToken: 0,
-          subscribers: 0,
-          videos: 0
+
+        // Find the user by username with case-insensitive search
+        console.log("Searching for user in database with username:", channelUsername);
+        
+        const user = await User.findOne({ 
+            username: { 
+                $regex: new RegExp(`^${channelUsername}$`, 'i') 
+            } 
+        });
+
+        if (!user) {
+            console.log("No user found for username:", channelUsername);
+            throw new ApiError(404, `Channel "${channelUsername}" not found`);
         }
-      }
-    ]);
-  
-    const user = channel[0];
-    if (!user) {
-      throw new ApiError(404, "Channel not found");
+
+        console.log("User found:", user._id);
+
+        // Get channel statistics
+        console.log("Fetching channel statistics for user:", user._id);
+        
+        const [subscribersCount, videosCount] = await Promise.all([
+            subscription.countDocuments({ channel: user._id }),
+            Video.countDocuments({ owner: user._id, isPublished: true })
+        ]);
+
+        console.log("Channel statistics:", { subscribersCount, videosCount });
+
+        // Check if requesting user is subscribed
+        let isSubscribed = false;
+        if (req.user?._id) {
+            console.log("Checking subscription status for authenticated user");
+            
+            const subscription = await subscription.findOne({
+                subscriber: req.user._id,
+                channel: user._id
+            });
+            
+            isSubscribed = Boolean(subscription);
+            console.log("Subscription status:", isSubscribed);
+        }
+
+        // Prepare response data
+        const channelData = {
+            _id: user._id,
+            username: user.username,
+            fullName: user.fullName,
+            avatar: user.avatar,
+            coverImage: user.coverImage,
+            subscribersCount,
+            videosCount,
+            isSubscribed,
+            createdAt: user.createdAt
+        };
+
+        // Add additional fields for own channel
+        if (req.user?._id?.toString() === user._id.toString()) {
+            console.log("Adding additional fields for own channel");
+            channelData.email = user.email;
+            channelData.about = user.about;
+        }
+
+        console.log("Successfully prepared channel data");
+
+        return res.status(200).json({
+            success: true,
+            data: channelData
+        });
+
+    } catch (error) {
+        console.error("Error in getChannelProfile:", {
+            message: error.message,
+            stack: error.stack,
+            statusCode: error.statusCode || 500
+        });
+        throw error;
     }
-  
-    return res.json({
-      success: true,
-      data: user
-    });
-  });
+});
+
+
   
 
 const getWatchHistory = asyncHandler(async(req,res) => {

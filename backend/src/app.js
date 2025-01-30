@@ -40,4 +40,25 @@ app.use("/api/v1/playlists", playlistRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/tweets", tweetRouter);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error("Error:", {
+        message: err.message,
+        stack: err.stack,
+        statusCode: err.statusCode
+    });
+    
+    const statusCode = err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    
+    res.status(statusCode).json({
+        success: false,
+        message,
+        data: null,
+        errors: err.errors || [],
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+});
+  
+
 export default app;

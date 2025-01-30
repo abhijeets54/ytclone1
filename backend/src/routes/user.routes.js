@@ -1,46 +1,64 @@
 import { Router } from "express";
-import {  registerUser, loginUser, logoutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser,updateAccountDetails,
-    updateUserAvatar,updateUserCoverImage, getChannelProfile,
-    getWatchHistory,}  from "../controllers/user.controller.js";
+import {
+    registerUser,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage,
+    getChannelProfile,
+    getWatchHistory,
+} from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import ApiResponse from "../utils/ApiResponse.js";
-const router  = Router();
 
-router.route("/register").post(upload.fields([
-    {
-        name: "avatar",
-        maxCount: 1
-    },
-    {
-        name: "coverImage",
-        maxCount: 1
-    }
-])
-    ,registerUser);
+const router = Router();
 
+// Public routes
+router.post(
+    "/register",
+    upload.fields([
+        { name: "avatar", maxCount: 1 },
+        { name: "coverImage", maxCount: 1 },
+    ]),
+    registerUser
+);
 
-router.route("/login").post(loginUser);
+router.post("/login", loginUser);
 
+// Secured routes
+router.post("/logout", verifyJWT, logoutUser);
 
+// Removed verifyJWT for refresh-token
+router.post("/refresh-token", refreshAccessToken);
 
-//secured routes
-router.route("/logout").post(verifyJWT, logoutUser);
+router.post("/change-password", verifyJWT, changeCurrentPassword);
 
-router.route("/refresh-token").post(verifyJWT,refreshAccessToken);
+router.get("/current-user", verifyJWT, getCurrentUser);
 
-router.route("/change-password").post(verifyJWT, changeCurrentPassword);
+router.patch("/update-account", verifyJWT, updateAccountDetails);
 
-router.route("/current-user").get(verifyJWT, getCurrentUser);
+router.patch(
+    "/avatar",
+    verifyJWT,
+    upload.single("avatar"),
+    updateUserAvatar
+);
 
-router.route("/update-account").patch(verifyJWT, updateAccountDetails);
+router.patch(
+    "/cover-image",
+    verifyJWT,
+    upload.single("coverImage"),
+    updateUserCoverImage
+);
 
-router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
+// Channel routes
+router.get("/c/:username", getChannelProfile); // Public route for any username
+router.get("/c/@me", verifyJWT, getChannelProfile); // Secured route for the current user's channel
 
-router.route("/cover-image").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
+router.get("/history", verifyJWT, getWatchHistory);
 
-router.route("/c/:username").get(verifyJWT,getChannelProfile);
-
-router.route("/history").get(verifyJWT,getWatchHistory);
-
-export default router 
+export default router;
